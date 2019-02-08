@@ -1,0 +1,89 @@
+REQUIRED PACKAGES
+
+Required packages for running scripts in this directory are
+plotly, fastdtw, and pytorch. 
+
+
+HOW TO RUN
+
+Part 1 can be run through 
+python create_gait_cycles.py
+
+Part 2 can be run through 
+python run.py
+
+
+PART 1: CYCLE DETECTION
+
+The Cycle Detection Algorithm written is a very simple one, and operates
+primarily on the wx reading of the gyroscope. This reading was chosen because
+it seemed to be the most stable and noise-less reading of the three 
+gyroscope and three accelerometer readings (a graph comparing the six readings
+is shown in plots/gyroscope_accelerometer_relationship.png). Unfortunately,
+one downside of this is that the cycle detection algorithm would likely work much
+more poorly if the phone was placed in the pocket along a different axis; this
+could be solved by taking the L2 norm of the entire gyroscope, although this idea
+wasn't explored in this solution. 
+
+The algorithm works on the observation that cycles seem to be dominated by one 
+long period of positive wx values and one long period of negative wx values. 
+Therefore, the algorithm finds all the times in which the gyroscope reading is 
+positive, and sets a cycle start point for the times that are longer than average. 
+This has the advantage of being invariant to the speed of walking, although
+the robustness of the algorithm has not yet been explored relative to different
+walking subjects and/or other physical disabilities. 
+
+Further, as in some related works [1-5], we use DTW to compare distance between 
+our cycles to detect outlier cycles and remove them if found. Afterwards, cycles 
+are normalized from their variable time lengths to 100 elements via 
+linear interpolation. Some other papers [3, 4, 6-8] also use wavelet decomposition,
+namely Daubechies wavelet of order 8 [3, 4] and Butterword filters [6-8] to
+denoise their signal. However, this didn't seem to be necessary in this
+particular project, so it was not implemented. 
+
+The image plots/10_steps_from_small_dataset.png overlays the 10 cyclic steps 
+found in order to compare their shape and we find that indeed, the shapes are
+all very similar. To explore the robustness of this algorithm slightly more, 
+it was run again using a larger dataset of 100+ steps, and 10 of the isolated 
+cycle curves are shown in plots/10_steps_from_large_dataset.png. 
+
+
+
+PART 2: CONVERTING BETWEEN FORWARD AND BACKWARD GAIT SIGNALS
+
+Unfortunately, I couldn't get two devices that would be able to measure data
+together, so I couldn't get a direct mapping between the reading of step
+from the forward pocket and the backward pocket at the same time, meaning
+I had some trouble connecting training data with labels. To compensate, I used
+a (very) imperfect solution of collecting data twice with the same device:
+once from the front and once from the back. For m readings in the front and 
+n readings in the back, I then constructed my data where every input element
+(the front for sake of example) was duplicated n times, each time to a different 
+reading in the back. I was careful to split the dev and test sets before making
+these combinations, so all inputs and labels to both the dev and test sets
+are not seen during training. 
+
+
+The model used to convert between forward and backward gait signals is a simple
+2 layer fully connected neural net with 100 hidden units, with a ReLU 
+nonlinearity and Dropout (p=0.5) during training. I used an Adam optimizer 
+to optimize parameters, and the hyperparemeters used were not particularly tuned 
+but seemed to work well regardless. A Training/Dev loss graph can be seen in 
+plots/Training v Dev Loss.png. The training and testing process for Forward to 
+Backward and Backward to Forward was identical and differed only by switching
+the training data/labels, and is controlled by the FRONT_TO_BACK_MODEL boolean
+variable. An example output graph of the Forward to Backward
+model is in plots/Forward Gyro to Backward Gyro Example.png, and the 
+corresponding counterpart is in plots/Backward Gyro to Forward Gyro Example.png. 
+
+
+
+Citations:
+[1] Stan Salvador, and Philip Chan. “FastDTW: Toward accurate dynamic time warping in linear time and space.” Intelligent Data Analysis 11.5 (2007): 561-580.
+[2] Derawi, Mohammad O., Patrick Bours, and Kjetil Holien. "Improved cycle detection for accelerometer based gait authentication." 2010 Sixth International Conference on Intelligent Information Hiding and Multimedia Signal Processing. IEEE, 2010.
+[3] Rong, Liu, et al. "Identification of individual walking patterns using gait acceleration." Bioinformatics and Biomedical Engineering, 2007. ICBBE 2007. The 1st International Conference on. IEEE, 2007.
+[4] Rong, Liu, et al. "A wearable acceleration sensor system for gait recognition." Industrial Electronics and Applications, 2007. ICIEA 2007. 2nd IEEE Conference on. IEEE, 2007.
+[5] Keogh, Eamonn, and Chotirat Ann Ratanamahatana. "Exact indexing of dynamic time warping." Knowledge and information systems 7.3 (2005): 358-386.
+[6] Stamatakis, Julien, et al. "Gait feature extraction in Parkinson's disease using low-cost accelerometers." Engineering in Medicine and Biology Society, EMBC, 2011 Annual International Conference of the IEEE. IEEE, 2011.
+[7] Selles, Ruud W., et al. "Automated estimation of initial and terminal contact timing using accelerometers; development and validation in transtibial amputees and controls." IEEE transactions on neural systems and rehabilitation engineering 13.1 (2005): 81-88.
+[8] Rueterbories, Jan, et al. "Methods for gait event detection and analysis in ambulatory systems." Medical engineering & physics 32.6 (2010): 545-552.
